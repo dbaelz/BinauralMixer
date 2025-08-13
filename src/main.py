@@ -39,7 +39,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "-b",
         "--binaural",
-        required=True,
+        required=False,
         help="Binaural beat frequencies in the format 'left[-left_end]:right[-right_end]'. Example: '46-70:48-74' or '100:104'"
     )
 
@@ -69,36 +69,46 @@ def main() -> None:
     os.makedirs(TEMP_BUILD_DIR, exist_ok=True)
 
     args = parse_args()
-    binaural_params = parse_binaural_arg(args.binaural)
 
     effects = []
     if args.effect:
         for effect_str in args.effect:
             effects.append(parse_effect_arg(effect_str))
 
-    target_sample_rate = get_audio_sample_rate(args.audio)
+    if not args.binaural and not effects:
+        print("No binaural or effects specified. Nothing to do.")
+        return
 
+    target_sample_rate = get_audio_sample_rate(args.audio)
     effect_file_map = resample_effects(effects, target_sample_rate, TEMP_BUILD_DIR)
 
-    generate_binaural_sox(
-        output_path=TEMP_BINAURAL_FILE,
-        duration_seconds=get_audio_duration(args.audio),
-        sample_rate=target_sample_rate,
-        left_freq=binaural_params.left_freq,
-        left_end=binaural_params.left_end,
-        right_freq=binaural_params.right_freq,
-        right_end=binaural_params.right_end,
-        gain=args.binaural_gain
-    )
-
-    output_mix = os.path.join(TEMP_BUILD_DIR, get_mixed_filename(args.audio))
-
-    mix_audio(
-        input_audio=args.audio,
-        binaural_file=TEMP_BINAURAL_FILE,
-        output_file=output_mix
-    )
-    print(f"Mixed audio written to: {output_mix}")
+    if args.binaural:
+        binaural_params = parse_binaural_arg(args.binaural)
+        generate_binaural_sox(
+            output_path=TEMP_BINAURAL_FILE,
+            duration_seconds=get_audio_duration(args.audio),
+            sample_rate=target_sample_rate,
+            left_freq=binaural_params.left_freq,
+            left_end=binaural_params.left_end,
+            right_freq=binaural_params.right_freq,
+            right_end=binaural_params.right_end,
+            gain=args.binaural_gain
+        )
+        output_mix = os.path.join(TEMP_BUILD_DIR, get_mixed_filename(args.audio))
+        mix_audio(
+            input_audio=args.audio,
+            binaural_file=TEMP_BINAURAL_FILE,
+            output_file=output_mix
+        )
+        print(f"Mixed audio written to: {output_mix}")
+    else:
+        # No binaural, just copy input audio to output
+        output_mix = os.path.join(TEMP_BUILD_DIR, get_mixed_filename(args.audio))
+        # Use sox to copy and ensure consistent format
+        subprocess.run([
+            "sox", args.audio, output_mix
+        ], check=True)
+        print(f"Audio copied to: {output_mix}")
 
 
 def parse_binaural_arg(binaural_str: str) -> BinauralParams:

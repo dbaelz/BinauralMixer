@@ -8,7 +8,8 @@ import subprocess
 PROGRAM_NAME = "Binaural Mixer"
 VERSION = "0.0.1"
 
-TEMP_BINAURAL_FILE = os.path.join("build", "binaural.wav")
+TEMP_BUILD_DIR = "build"
+TEMP_BINAURAL_FILE = os.path.join(TEMP_BUILD_DIR, "binaural.wav")
 
 @dataclass
 class BinauralParams:
@@ -62,7 +63,15 @@ def main() -> None:
         right_end=binaural_params.right_end,
         gain=args.binaural_gain
     )
-    print(f"Binaural audio generated at: {TEMP_BINAURAL_FILE}")
+
+    output_mix = os.path.join(TEMP_BUILD_DIR, "audio_mixed.mp3")
+
+    mix_audio(
+        input_audio=args.audio,
+        binaural_file=TEMP_BINAURAL_FILE,
+        output_file=output_mix
+    )
+    print(f"Mixed audio written to: {output_mix}")
 
 
 def parse_binaural_arg(binaural_str):
@@ -129,6 +138,18 @@ def generate_binaural_sox(output_path, duration, sample_rate, left_freq, left_en
     ] + synth_args + ["gain", f"+{gain}"]
     subprocess.run(cmd, check=True)
 
+
+def mix_audio(input_audio, binaural_file, output_file):
+    # Mix the input audio and binaural file into the output file using sox
+    # Example: sox -m input.mp3 binaural.wav output.mp3
+    cmd = [
+        "sox",
+        "-m",
+        input_audio,
+        binaural_file,
+        output_file
+    ]
+    subprocess.run(cmd, check=True)
 
 if __name__ == "__main__":
     main()

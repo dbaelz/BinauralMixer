@@ -18,6 +18,12 @@ class BinauralParams:
     right_freq: float
     right_end: Optional[float]
 
+@dataclass
+class EffectParams:
+    file: str
+    gain: float
+    offset: float
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Mix an audio track with binaural", add_help=True)
@@ -27,7 +33,7 @@ def parse_args() -> argparse.Namespace:
         "-a",
         "--audio",
         required=True,
-        help="Path to the input audio file (e.g., MP3)"
+        help="Path to the input audio file (e.g., mp3)"
     )
 
     parser.add_argument(
@@ -44,6 +50,18 @@ def parse_args() -> argparse.Namespace:
         default=0.5,
         help="Gain/volume for the binaural track (default: 0.5)"
     )
+
+    parser.add_argument(
+        "--effect",
+        action="append",
+        help=(
+            "Add a sound effect to the mix. Format: 'file:gain:offset'. "
+            "'file' is the effect audio file (e.g., mp3 or wav). "
+            "'gain' (optional, default: 0.5) is the effect volume multiplier. "
+            "'offset' is the start time in seconds. "
+            "Example: --effect gong.mp3:1.2:5.5 --effect bell.wav::10"
+        )
+    )
     return parser.parse_args()
 
 
@@ -55,7 +73,7 @@ def main() -> None:
 
     generate_binaural_sox(
         output_path=TEMP_BINAURAL_FILE,
-        duration=get_audio_duration(args.audio),
+        duration_seconds=get_audio_duration(args.audio),
         sample_rate=get_audio_sample_rate(args.audio),
         left_freq=binaural_params.left_freq,
         left_end=binaural_params.left_end,
@@ -75,8 +93,10 @@ def main() -> None:
 
 
 def parse_binaural_arg(binaural_str: str) -> BinauralParams:
-    # Format: left[-left_end]:right[-right_end]
-    # Example: '46-70:48-74' or '100:104'
+    """
+    Parse a --binaural argument string of the form 'left[-left_end]:right[-right_end]'.
+    Example: '46-70:48-74' or '100:104'
+    """
     try:
         left, right = binaural_str.split(":")
         left_parts = left.split("-")
@@ -94,6 +114,25 @@ def parse_binaural_arg(binaural_str: str) -> BinauralParams:
     except Exception as e:
         raise ValueError(f"Invalid --binaural format: {binaural_str}") from e
 
+def parse_effect_arg(effect_str: str, default_gain: float = 0.5) -> EffectParams:
+    """
+    Parse an --effect argument string of the form 'file:gain:offset'.
+    Example: 'gong.mp3:1.2:5.5', 'bell.wav::10'
+    """
+    try:
+        parts = effect_str.split(":")
+        if len(parts) < 2:
+            raise ValueError("Missing required fields in --effect argument.")
+        file = parts[0]
+        gain_str = parts[1] if len(parts) > 1 else ""
+        offset_str = parts[2] if len(parts) > 2 else ""
+        gain = float(gain_str) if gain_str else default_gain
+        if not offset_str:
+            raise ValueError("Offset (seconds) is required in --effect argument.")
+        offset = float(offset_str)
+        return EffectParams(file=file, gain=gain, offset=offset)
+    except Exception as e:
+        raise ValueError(f"Invalid --effect format: {effect_str}") from e
 
 def get_audio_duration(filepath: str) -> float:
     result = subprocess.run([
@@ -117,7 +156,7 @@ def get_audio_sample_rate(filepath: str) -> int:
 
 def generate_binaural_sox(
     output_path: str,
-    duration: float,
+    duration_seconds: float,
     sample_rate: int,
     left_freq: float,
     left_end: Optional[float],
@@ -125,8 +164,10 @@ def generate_binaural_sox(
     right_end: Optional[float],
     gain: float
 ) -> None:
-    # Build sox synth command for stereo binaural audio
-    # Example: sox -b 16 -n -r 48000 -c 2 binaural.wav synth 180 sine 100 sine 104 gain +0.5
+    """
+    Generate a stereo binaural audio file using sox.
+    SoX call: sox -b 16 -n -r 48000 -c 2 binaural.wav synth 180 sine 100 sine 104 gain +0.5
+    """
     synth_args = []
     if left_end is not None:
         synth_args += ["sine", f"{left_freq}-{left_end}"]
@@ -143,7 +184,7 @@ def generate_binaural_sox(
         "-r", str(sample_rate),
         "-c", "2",
         output_path,
-        "synth", str(duration),
+        "synth", str(duration_seconds),
     ] + synth_args + ["gain", f"+{gain}"]
     subprocess.run(cmd, check=True)
 
@@ -158,8 +199,10 @@ def mix_audio(
     binaural_file: str,
     output_file: str
 ) -> None:
-    # Mix the input audio and binaural file into the output file using sox
-    # Example: sox -m input.mp3 binaural.wav output.mp3
+    """
+    Mix the input audio and binaural file into the output file using sox.
+    SoX call: sox -m input.mp3 binaural.wav output.mp3
+    """
     cmd = [
         "sox",
         "-m",

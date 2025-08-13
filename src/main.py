@@ -11,6 +11,7 @@ VERSION = "0.0.1"
 
 TEMP_BUILD_DIR = "build"
 TEMP_BINAURAL_FILE = os.path.join(TEMP_BUILD_DIR, "binaural.wav")
+TMP_EFFECT_FILE_PATTERN = "tmp_effect_{}.wav"
 
 @dataclass
 class BinauralParams:
@@ -108,28 +109,33 @@ def main() -> None:
         ], check=True)
 
     if effects:
-        output_with_fx = output_mix
+        output_with__effect = output_mix
         for idx, effect in enumerate(effects):
-            resampled_fx = effect_file_map[effect.file]
-            next_output = os.path.join(TEMP_BUILD_DIR, f"tmp_fx_{idx}.wav")
+            resampled__effect = effect_file_map[effect.file]
+            next_output = os.path.join(TEMP_BUILD_DIR, TMP_EFFECT_FILE_PATTERN.format(idx))
             overlay_effect(
-                base_audio=output_with_fx,
-                effect_audio=resampled_fx,
+                base_audio=output_with__effect,
+                effect_audio=resampled__effect,
                 effect_gain=effect.gain,
                 effect_offset=effect.offset,
                 output_file=next_output
             )
-            output_with_fx = next_output
+            output_with__effect = next_output
         
         subprocess.run([
-            "sox", output_with_fx, output_mix
+            "sox", output_with__effect, output_mix
         ], check=True)
-        os.remove(output_with_fx)
-    
+        os.remove(output_with__effect)
+
+
+    if args.binaural and os.path.exists(TEMP_BINAURAL_FILE):
+            os.remove(TEMP_BINAURAL_FILE)
+
     for idx in range(len(effects) - 1):
-        tmp_path = os.path.join(TEMP_BUILD_DIR, f"tmp_fx_{idx}.wav")
+        tmp_path = os.path.join(TEMP_BUILD_DIR, TMP_EFFECT_FILE_PATTERN.format(idx))
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+    
 
 def parse_binaural_arg(binaural_str: str) -> BinauralParams:
     """
@@ -258,18 +264,18 @@ def overlay_effect(base_audio: str, effect_audio: str, effect_gain: float, effec
     Overlay effect_audio onto base_audio at effect_offset (seconds) and effect_gain (dB).
     Pre-process the effect (pad and gain) to a temp file, then mix with base_audio.
     """
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_fx:
-        tmp_fx_path = tmp_fx.name
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_effect:
+        tmp_effect_path = tmp_effect.name
     try:
         subprocess.run([
-            "sox", effect_audio, tmp_fx_path, "pad", str(effect_offset), "gain", f"{effect_gain:+g}"
+            "sox", effect_audio, tmp_effect_path, "pad", str(effect_offset), "gain", f"{effect_gain:+g}"
         ], check=True)
         subprocess.run([
-            "sox", "-m", base_audio, tmp_fx_path, output_file
+            "sox", "-m", base_audio, tmp_effect_path, output_file
         ], check=True)
     finally:
-        if os.path.exists(tmp_fx_path):
-            os.remove(tmp_fx_path)
+        if os.path.exists(tmp_effect_path):
+            os.remove(tmp_effect_path)
 
 
 

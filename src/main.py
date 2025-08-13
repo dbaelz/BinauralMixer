@@ -48,7 +48,7 @@ def parse_args() -> argparse.Namespace:
         "--binaural-gain",
         type=float,
         default=0.5,
-        help="Gain/volume for the binaural track (default: 0.5)"
+        help="Gain (in dB) for the binaural track (default: 0.5)"
     )
 
     parser.add_argument(
@@ -57,7 +57,7 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Add a sound effect to the mix. Format: 'file:gain:offset'. "
             "'file' is the effect audio file (e.g., mp3 or wav). "
-            "'gain' (optional, default: 0.5) is the effect volume multiplier. "
+            "'gain' (optional, default: 0.5) is the effect gain in dB. "
             "'offset' is the start time in seconds. "
             "Example: --effect gong.mp3:1.2:5.5 --effect bell.wav::10"
         )
@@ -204,7 +204,11 @@ def generate_binaural_sox(
         "-c", "2",
         output_path,
         "synth", str(duration_seconds),
-    ] + synth_args + ["gain", f"+{gain}"]
+    ] + synth_args
+
+    if gain != 0:
+        cmd += ["gain", f"{'+' if gain > 0 else ''}{gain}"]
+
     subprocess.run(cmd, check=True)
 
 def resample_effects(effects, target_sample_rate: int, build_dir: str) -> dict:

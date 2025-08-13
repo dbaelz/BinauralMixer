@@ -19,12 +19,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        "-b",
         "--binaural",
         required=True,
         help="Binaural beat frequencies in the format 'left[-left_end]:right[-right_end]'. Example: '46-70:48-74' or '100:104'"
     )
 
     parser.add_argument(
+        "-bg",
         "--binaural-gain",
         type=float,
         default=0.5,

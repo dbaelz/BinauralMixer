@@ -3,6 +3,7 @@ from typing import Optional
 import argparse
 import os
 import subprocess
+import tempfile
 
 
 PROGRAM_NAME = "Binaural Mixer"
@@ -82,6 +83,8 @@ def main() -> None:
     target_sample_rate = get_audio_sample_rate(args.audio)
     effect_file_map = resample_effects(effects, target_sample_rate, TEMP_BUILD_DIR)
 
+    output_mix = os.path.join(TEMP_BUILD_DIR, get_mixed_filename(args.audio))
+
     if args.binaural:
         binaural_params = parse_binaural_arg(args.binaural)
         generate_binaural_sox(
@@ -94,22 +97,39 @@ def main() -> None:
             right_end=binaural_params.right_end,
             gain=args.binaural_gain
         )
-        output_mix = os.path.join(TEMP_BUILD_DIR, get_mixed_filename(args.audio))
-        mix_audio(
+        mix_audio_binaural(
             input_audio=args.audio,
             binaural_file=TEMP_BINAURAL_FILE,
             output_file=output_mix
         )
-        print(f"Mixed audio written to: {output_mix}")
     else:
-        # No binaural, just copy input audio to output
-        output_mix = os.path.join(TEMP_BUILD_DIR, get_mixed_filename(args.audio))
-        # Use sox to copy and ensure consistent format
         subprocess.run([
             "sox", args.audio, output_mix
         ], check=True)
-        print(f"Audio copied to: {output_mix}")
 
+    if effects:
+        output_with_fx = output_mix
+        for idx, effect in enumerate(effects):
+            resampled_fx = effect_file_map[effect.file]
+            next_output = os.path.join(TEMP_BUILD_DIR, f"tmp_fx_{idx}.wav")
+            overlay_effect(
+                base_audio=output_with_fx,
+                effect_audio=resampled_fx,
+                effect_gain=effect.gain,
+                effect_offset=effect.offset,
+                output_file=next_output
+            )
+            output_with_fx = next_output
+        
+        subprocess.run([
+            "sox", output_with_fx, output_mix
+        ], check=True)
+        os.remove(output_with_fx)
+    
+    for idx in range(len(effects) - 1):
+        tmp_path = os.path.join(TEMP_BUILD_DIR, f"tmp_fx_{idx}.wav")
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
 def parse_binaural_arg(binaural_str: str) -> BinauralParams:
     """
@@ -233,12 +253,32 @@ def resample_effects(effects, target_sample_rate: int, build_dir: str) -> dict:
         file_map[effect.file] = resampled_path
     return file_map
 
+def overlay_effect(base_audio: str, effect_audio: str, effect_gain: float, effect_offset: float, output_file: str) -> None:
+    """
+    Overlay effect_audio onto base_audio at effect_offset (seconds) and effect_gain (dB).
+    Pre-process the effect (pad and gain) to a temp file, then mix with base_audio.
+    """
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_fx:
+        tmp_fx_path = tmp_fx.name
+    try:
+        subprocess.run([
+            "sox", effect_audio, tmp_fx_path, "pad", str(effect_offset), "gain", f"{effect_gain:+g}"
+        ], check=True)
+        subprocess.run([
+            "sox", "-m", base_audio, tmp_fx_path, output_file
+        ], check=True)
+    finally:
+        if os.path.exists(tmp_fx_path):
+            os.remove(tmp_fx_path)
+
+
+
 def get_mixed_filename(input_path: str) -> str:
     base, ext = os.path.splitext(os.path.basename(input_path))
     return f"{base}-mixed{ext}"
     
 
-def mix_audio(
+def mix_audio_binaural(
     input_audio: str,
     binaural_file: str,
     output_file: str

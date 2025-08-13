@@ -45,9 +45,8 @@ def main() -> None:
     binaural_params = parse_binaural_arg(args.binaural)
     print(f"Parsed binaural params: {binaural_params}")
 
-    audio_duration, audio_sample_rate = get_audio_info(args.audio)
-    print(f"Audio duration: {audio_duration:.2f} seconds")
-    print(f"Audio sample rate: {audio_sample_rate} Hz")
+    print(f"Audio duration: {get_audio_duration(args.audio)} seconds")
+    print(f"Audio sample rate: {get_audio_sample_rate(args.audio)} Hz")
 
 
 def parse_binaural_arg(binaural_str):
@@ -69,24 +68,26 @@ def parse_binaural_arg(binaural_str):
         }
     except Exception as e:
         raise ValueError(f"Invalid --binaural format: {binaural_str}") from e
-    
 
 
-def get_audio_info(filepath):
+def get_audio_duration(filepath):
     result = subprocess.run([
-        "sox", filepath, "-n", "stat"
-    ], stderr=subprocess.PIPE, text=True)
-    duration = None
-    sample_rate = None
-    for line in result.stderr.splitlines():
-        if "Length (seconds):" in line:
-            duration = float(line.split(":")[1].strip())
-        if "Sample Rate" in line:
-            sample_rate = int(float(line.split(":")[1].strip()))
-    if duration is None or sample_rate is None:
-        raise RuntimeError(f"Could not determine duration or sample rate of {filepath}")
-    return duration, sample_rate
+        "soxi", "-D", filepath
+    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        return float(result.stdout.strip())
+    except Exception:
+        raise RuntimeError(f"Could not determine duration of {filepath} using soxi")
 
+
+def get_audio_sample_rate(filepath):
+    result = subprocess.run([
+        "soxi", "-r", filepath
+    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        return int(result.stdout.strip())
+    except Exception:
+        raise RuntimeError(f"Could not determine sample rate of {filepath} using soxi")
 
 
 if __name__ == "__main__":

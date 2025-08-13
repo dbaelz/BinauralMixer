@@ -19,7 +19,7 @@ class BinauralParams:
     right_end: Optional[float]
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Mix an audio track with binaural", add_help=True)
     parser.add_argument("--version", action="version", version=f"{PROGRAM_NAME} - version {VERSION}")
     
@@ -74,7 +74,7 @@ def main() -> None:
     print(f"Mixed audio written to: {output_mix}")
 
 
-def parse_binaural_arg(binaural_str):
+def parse_binaural_arg(binaural_str: str) -> BinauralParams:
     # Format: left[-left_end]:right[-right_end]
     # Example: '46-70:48-74' or '100:104'
     try:
@@ -95,7 +95,7 @@ def parse_binaural_arg(binaural_str):
         raise ValueError(f"Invalid --binaural format: {binaural_str}") from e
 
 
-def get_audio_duration(filepath):
+def get_audio_duration(filepath: str) -> float:
     result = subprocess.run([
         "soxi", "-D", filepath
     ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -105,7 +105,7 @@ def get_audio_duration(filepath):
         raise RuntimeError(f"Could not determine duration of {filepath} using soxi")
 
 
-def get_audio_sample_rate(filepath):
+def get_audio_sample_rate(filepath: str) -> int:
     result = subprocess.run([
         "soxi", "-r", filepath
     ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -115,7 +115,16 @@ def get_audio_sample_rate(filepath):
         raise RuntimeError(f"Could not determine sample rate of {filepath} using soxi")
 
 
-def generate_binaural_sox(output_path, duration, sample_rate, left_freq, left_end, right_freq, right_end, gain):
+def generate_binaural_sox(
+    output_path: str,
+    duration: float,
+    sample_rate: int,
+    left_freq: float,
+    left_end: Optional[float],
+    right_freq: float,
+    right_end: Optional[float],
+    gain: float
+) -> None:
     # Build sox synth command for stereo binaural audio
     # Example: sox -b 16 -n -r 48000 -c 2 binaural.wav synth 180 sine 100 sine 104 gain +0.5
     synth_args = []
@@ -139,12 +148,16 @@ def generate_binaural_sox(output_path, duration, sample_rate, left_freq, left_en
     subprocess.run(cmd, check=True)
 
 
-def get_mixed_filename(input_path):
+def get_mixed_filename(input_path: str) -> str:
     base, ext = os.path.splitext(os.path.basename(input_path))
     return f"{base}-mixed{ext}"
     
 
-def mix_audio(input_audio, binaural_file, output_file):
+def mix_audio(
+    input_audio: str,
+    binaural_file: str,
+    output_file: str
+) -> None:
     # Mix the input audio and binaural file into the output file using sox
     # Example: sox -m input.mp3 binaural.wav output.mp3
     cmd = [

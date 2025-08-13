@@ -45,6 +45,9 @@ def main() -> None:
     binaural_params = parse_binaural_arg(args.binaural)
     print(f"Parsed binaural params: {binaural_params}")
 
+    audio_duration = get_audio_duration(args.audio)
+    print(f"Audio duration: {audio_duration:.2f} seconds")
+
 
 def parse_binaural_arg(binaural_str):
     # Format: left[-left_end]:right[-right_end]
@@ -65,6 +68,17 @@ def parse_binaural_arg(binaural_str):
         }
     except Exception as e:
         raise ValueError(f"Invalid --binaural format: {binaural_str}") from e
+    
+
+def get_audio_duration(filepath):
+    result = subprocess.run([
+        "sox", filepath, "-n", "stat"
+    ], stderr=subprocess.PIPE, text=True)
+    for line in result.stderr.splitlines():
+        if "Length (seconds):" in line:
+            return float(line.split(":")[1].strip())
+    raise RuntimeError(f"Could not determine duration of {filepath}")
+
 
 
 if __name__ == "__main__":

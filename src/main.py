@@ -45,8 +45,9 @@ def main() -> None:
     binaural_params = parse_binaural_arg(args.binaural)
     print(f"Parsed binaural params: {binaural_params}")
 
-    audio_duration = get_audio_duration(args.audio)
+    audio_duration, audio_sample_rate = get_audio_info(args.audio)
     print(f"Audio duration: {audio_duration:.2f} seconds")
+    print(f"Audio sample rate: {audio_sample_rate} Hz")
 
 
 def parse_binaural_arg(binaural_str):
@@ -70,14 +71,21 @@ def parse_binaural_arg(binaural_str):
         raise ValueError(f"Invalid --binaural format: {binaural_str}") from e
     
 
-def get_audio_duration(filepath):
+
+def get_audio_info(filepath):
     result = subprocess.run([
         "sox", filepath, "-n", "stat"
     ], stderr=subprocess.PIPE, text=True)
+    duration = None
+    sample_rate = None
     for line in result.stderr.splitlines():
         if "Length (seconds):" in line:
-            return float(line.split(":")[1].strip())
-    raise RuntimeError(f"Could not determine duration of {filepath}")
+            duration = float(line.split(":")[1].strip())
+        if "Sample Rate" in line:
+            sample_rate = int(float(line.split(":")[1].strip()))
+    if duration is None or sample_rate is None:
+        raise RuntimeError(f"Could not determine duration or sample rate of {filepath}")
+    return duration, sample_rate
 
 
 

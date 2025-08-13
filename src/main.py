@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+from typing import Optional
 import argparse
 import os
 import subprocess
@@ -5,6 +7,15 @@ import subprocess
 
 PROGRAM_NAME = "Binaural Mixer"
 VERSION = "0.0.1"
+
+TEMP_BINAURAL_FILE = os.path.join("build", "binaural.wav")
+
+@dataclass
+class BinauralParams:
+    left_freq: float
+    left_end: Optional[float]
+    right_freq: float
+    right_end: Optional[float]
 
 
 def parse_args():
@@ -36,17 +47,22 @@ def parse_args():
 
 
 def main() -> None:
+    os.makedirs(os.path.dirname(TEMP_BINAURAL_FILE), exist_ok=True)
+
     args = parse_args()
-    
-    print(f"Input file: {args.audio}")
-    print(f"Binaural: {args.binaural}")
-    print(f"Binaural gain: {args.binaural_gain}")
-
     binaural_params = parse_binaural_arg(args.binaural)
-    print(f"Parsed binaural params: {binaural_params}")
 
-    print(f"Audio duration: {get_audio_duration(args.audio)} seconds")
-    print(f"Audio sample rate: {get_audio_sample_rate(args.audio)} Hz")
+    generate_binaural_sox(
+        output_path=TEMP_BINAURAL_FILE,
+        duration=get_audio_duration(args.audio),
+        sample_rate=get_audio_sample_rate(args.audio),
+        left_freq=binaural_params.left_freq,
+        left_end=binaural_params.left_end,
+        right_freq=binaural_params.right_freq,
+        right_end=binaural_params.right_end,
+        gain=args.binaural_gain
+    )
+    print(f"Binaural audio generated at: {TEMP_BINAURAL_FILE}")
 
 
 def parse_binaural_arg(binaural_str):
@@ -60,12 +76,12 @@ def parse_binaural_arg(binaural_str):
         left_end = float(left_parts[1]) if len(left_parts) > 1 else None
         right_freq = float(right_parts[0])
         right_end = float(right_parts[1]) if len(right_parts) > 1 else None
-        return {
-            "left_freq": left_freq,
-            "left_end": left_end,
-            "right_freq": right_freq,
-            "right_end": right_end
-        }
+        return BinauralParams(
+            left_freq=left_freq,
+            left_end=left_end,
+            right_freq=right_freq,
+            right_end=right_end
+        )
     except Exception as e:
         raise ValueError(f"Invalid --binaural format: {binaural_str}") from e
 
@@ -88,6 +104,30 @@ def get_audio_sample_rate(filepath):
         return int(result.stdout.strip())
     except Exception:
         raise RuntimeError(f"Could not determine sample rate of {filepath} using soxi")
+
+
+def generate_binaural_sox(output_path, duration, sample_rate, left_freq, left_end, right_freq, right_end, gain):
+    # Build sox synth command for stereo binaural audio
+    # Example: sox -b 16 -n -r 48000 -c 2 binaural.wav synth 180 sine 100 sine 104 gain +0.5
+    synth_args = []
+    if left_end is not None:
+        synth_args += ["sine", f"{left_freq}-{left_end}"]
+    else:
+        synth_args += ["sine", f"{left_freq}"]
+    if right_end is not None:
+        synth_args += ["sine", f"{right_freq}-{right_end}"]
+    else:
+        synth_args += ["sine", f"{right_freq}"]
+    cmd = [
+        "sox",
+        "-b", "16",
+        "-n",
+        "-r", str(sample_rate),
+        "-c", "2",
+        output_path,
+        "synth", str(duration),
+    ] + synth_args + ["gain", f"+{gain}"]
+    subprocess.run(cmd, check=True)
 
 
 if __name__ == "__main__":

@@ -1,70 +1,16 @@
-from dataclasses import dataclass
+
+
 from typing import Optional
-import argparse
+from params import BinauralParams, EffectParams
+from cli import parse_args, PROGRAM_NAME, VERSION
+from audio_utils import get_audio_duration, get_audio_sample_rate
 import os
 import subprocess
 import tempfile
 
-
-PROGRAM_NAME = "Binaural Mixer"
-VERSION = "0.0.1"
-
 TEMP_BUILD_DIR = "build"
 TEMP_BINAURAL_FILE = os.path.join(TEMP_BUILD_DIR, "binaural.wav")
 TMP_EFFECT_FILE_PATTERN = "tmp_effect_{}.wav"
-
-@dataclass
-class BinauralParams:
-    left_freq: float
-    left_end: Optional[float]
-    right_freq: float
-    right_end: Optional[float]
-
-@dataclass
-class EffectParams:
-    file: str
-    gain: float
-    offset: float
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Mix an audio track with binaural", add_help=True)
-    parser.add_argument("--version", action="version", version=f"{PROGRAM_NAME} - version {VERSION}")
-    
-    parser.add_argument(
-        "-a",
-        "--audio",
-        required=True,
-        help="Path to the input audio file (e.g., mp3)"
-    )
-
-    parser.add_argument(
-        "-b",
-        "--binaural",
-        required=False,
-        help="Binaural beat frequencies in the format 'left[-left_end]:right[-right_end]'. Example: '46-70:48-74' or '100:104'"
-    )
-
-    parser.add_argument(
-        "-bg",
-        "--binaural-gain",
-        type=float,
-        default=0.5,
-        help="Gain (in dB) for the binaural track (default: 0.5)"
-    )
-
-    parser.add_argument(
-        "--effect",
-        action="append",
-        help=(
-            "Add a sound effect to the mix. Format: 'file:gain:offset'. "
-            "'file' is the effect audio file (e.g., mp3 or wav). "
-            "'gain' (optional, default: 0.5) is the effect gain in dB. "
-            "'offset' is the start time in seconds. "
-            "Example: --effect gong.mp3:1.2:5.5 --effect bell.wav::10"
-        )
-    )
-    return parser.parse_args()
 
 
 def main() -> None:
@@ -127,6 +73,10 @@ def main() -> None:
         ], check=True)
         os.remove(output_with__effect)
 
+    if os.path.exists(output_mix):
+        print(f"Mixed audio file created at: {output_mix}")
+    else:
+        print("Failed to create mixed audio file.")
 
     if args.binaural and os.path.exists(TEMP_BINAURAL_FILE):
             os.remove(TEMP_BINAURAL_FILE)
@@ -178,25 +128,6 @@ def parse_effect_arg(effect_str: str, default_gain: float = 0.5) -> EffectParams
         return EffectParams(file=file, gain=gain, offset=offset)
     except Exception as e:
         raise ValueError(f"Invalid --effect format: {effect_str}") from e
-
-def get_audio_duration(filepath: str) -> float:
-    result = subprocess.run([
-        "soxi", "-D", filepath
-    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    try:
-        return float(result.stdout.strip())
-    except Exception:
-        raise RuntimeError(f"Could not determine duration of {filepath} using soxi")
-
-
-def get_audio_sample_rate(filepath: str) -> int:
-    result = subprocess.run([
-        "soxi", "-r", filepath
-    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    try:
-        return int(result.stdout.strip())
-    except Exception:
-        raise RuntimeError(f"Could not determine sample rate of {filepath} using soxi")
 
 
 def generate_binaural_sox(

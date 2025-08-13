@@ -1,3 +1,4 @@
+import os
 import subprocess
 
 def get_audio_duration(filepath: str) -> float:
@@ -18,3 +19,7 @@ def get_audio_sample_rate(filepath: str) -> int:
         return int(result.stdout.strip())
     except Exception:
         raise RuntimeError(f"Could not determine sample rate of {filepath} using soxi")
+    
+def get_mixed_filename(input_path: str) -> str:
+    base, ext = os.path.splitext(os.path.basename(input_path))
+    return f"{base}-mixed{ext}"

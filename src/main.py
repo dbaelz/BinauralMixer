@@ -64,7 +64,7 @@ def main() -> None:
         gain=args.binaural_gain
     )
 
-    output_mix = os.path.join(TEMP_BUILD_DIR, "audio_mixed.mp3")
+    output_mix = os.path.join(TEMP_BUILD_DIR, get_mixed_filename(args.audio))
 
     mix_audio(
         input_audio=args.audio,
@@ -138,6 +138,11 @@ def generate_binaural_sox(output_path, duration, sample_rate, left_freq, left_en
     ] + synth_args + ["gain", f"+{gain}"]
     subprocess.run(cmd, check=True)
 
+
+def get_mixed_filename(input_path):
+    base, ext = os.path.splitext(os.path.basename(input_path))
+    return f"{base}-mixed{ext}"
+    
 
 def mix_audio(input_audio, binaural_file, output_file):
     # Mix the input audio and binaural file into the output file using sox

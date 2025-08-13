@@ -66,15 +66,24 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    os.makedirs(os.path.dirname(TEMP_BINAURAL_FILE), exist_ok=True)
+    os.makedirs(TEMP_BUILD_DIR, exist_ok=True)
 
     args = parse_args()
     binaural_params = parse_binaural_arg(args.binaural)
 
+    effects = []
+    if args.effect:
+        for effect_str in args.effect:
+            effects.append(parse_effect_arg(effect_str))
+
+    target_sample_rate = get_audio_sample_rate(args.audio)
+
+    effect_file_map = resample_effects(effects, target_sample_rate, TEMP_BUILD_DIR)
+
     generate_binaural_sox(
         output_path=TEMP_BINAURAL_FILE,
         duration_seconds=get_audio_duration(args.audio),
-        sample_rate=get_audio_sample_rate(args.audio),
+        sample_rate=target_sample_rate,
         left_freq=binaural_params.left_freq,
         left_end=binaural_params.left_end,
         right_freq=binaural_params.right_freq,
@@ -188,6 +197,27 @@ def generate_binaural_sox(
     ] + synth_args + ["gain", f"+{gain}"]
     subprocess.run(cmd, check=True)
 
+def resample_effects(effects, target_sample_rate: int, build_dir: str) -> dict:
+    """
+    Resample each unique effect file in effects to the target sample rate if needed.
+    Returns a dict mapping original file path to resampled file path.
+    """
+    file_map = {}
+    for effect in effects:
+        if effect.file in file_map:
+            continue
+        base, _ = os.path.splitext(os.path.basename(effect.file))
+        resampled_path = os.path.join(build_dir, f"{base}-{target_sample_rate}.wav")
+        if not os.path.exists(resampled_path):
+            cmd = [
+                "sox",
+                effect.file,
+                "-r", str(target_sample_rate),
+                resampled_path
+            ]
+            subprocess.run(cmd, check=True)
+        file_map[effect.file] = resampled_path
+    return file_map
 
 def get_mixed_filename(input_path: str) -> str:
     base, ext = os.path.splitext(os.path.basename(input_path))

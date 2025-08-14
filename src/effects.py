@@ -114,23 +114,33 @@ def overlay_effect(
             ], check=True)
             effect_path = repeated_path
         elif effect_repeat.mode in (RepeatMode.DURATION, RepeatMode.ENDLESS):
+            base_audio_length = get_audio_duration(base_audio)
+
             # DURATION: Use the requested duration
-            # ENDLESS: Use the base audio length
+            # ENDLESS: Use the base audio length    
             if effect_repeat.mode == RepeatMode.DURATION:
                 requested_duration = float(effect_repeat.value)
             else:
-                requested_duration = get_audio_duration(base_audio)
+                requested_duration = base_audio_length
             effect_length = get_audio_duration(effect_audio)
 
-            if requested_duration < effect_length:
-                print(f"[WARN] Effect '{effect_audio}' ({effect_length:.2f}s) not added: repeat duration ({requested_duration:.2f}s) is too short for a full repeat.")
+            # Calculate the available window for the effect (so it never extends the output)
+            available_duration = base_audio_length - effect_offset
+            if available_duration <= 0:
+                print(f"[WARN] Effect '{effect_audio}' not added: offset ({effect_offset:.2f}s) is after end of base audio ({base_audio_length:.2f}s).")
                 return False
             
-            repeat_count = int(requested_duration // effect_length)
-            if repeat_count == 0:
-                print(f"[WARN] Effect '{effect_audio}' not added: repeat duration too short for any full repeat.")
+            # Limit repeat duration to the available window
+            repeat_window = min(requested_duration, available_duration)
+            if repeat_window < effect_length:
+                print(f"[WARN] Effect '{effect_audio}' ({effect_length:.2f}s) not added: repeat window ({repeat_window:.2f}s) is too short for a full repeat.")
                 return False
-        
+            repeat_count = int(repeat_window // effect_length)
+            
+            if repeat_count == 0:
+                print(f"[WARN] Effect '{effect_audio}' not added: repeat window too short for any full repeat.")
+                return False
+            
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_repeated:
                 repeated_path = tmp_repeated.name
             subprocess.run([

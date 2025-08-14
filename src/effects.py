@@ -113,8 +113,13 @@ def overlay_effect(
                 "sox", effect_audio, repeated_path, "repeat", str(repeat_count - 1)
             ], check=True)
             effect_path = repeated_path
-        elif effect_repeat.mode == RepeatMode.DURATION:
-            requested_duration = float(effect_repeat.value)
+        elif effect_repeat.mode in (RepeatMode.DURATION, RepeatMode.ENDLESS):
+            # DURATION: Use the requested duration
+            # ENDLESS: Use the base audio length
+            if effect_repeat.mode == RepeatMode.DURATION:
+                requested_duration = float(effect_repeat.value)
+            else:
+                requested_duration = get_audio_duration(base_audio)
             effect_length = get_audio_duration(effect_audio)
 
             if requested_duration < effect_length:

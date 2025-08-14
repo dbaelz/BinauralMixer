@@ -99,7 +99,6 @@ def overlay_effect(
 ) -> bool:
     """
     Overlay effect_audio onto base_audio at effect_offset (seconds) and effect_gain (dB).
-    If repeat is set to TIMES, repeat the effect audio before overlaying.
     Pre-process the effect (pad and gain) to a temp file, then mix with base_audio.
     """
     effect_path = effect_audio

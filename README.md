@@ -10,7 +10,12 @@ A command line tool to mix an audio track with binaural. It uses SoX under the h
     - Example: `100:104` (static frequencies)
     - Example: `46-70:48-74` (sweeps from 46 Hz to 70 Hz left, 48 Hz to 74 Hz right)
   - `-bg, --binaural-gain`: Set the gain (in dB) for the binaural track (default: 0.5). 0 means no change; negative values reduce, positive values increase.
-  - `--effect`: Add a sound effect to the mix. Format: `file:gain:offset` where `gain` is in dB (default: 0.5), and `offset` is the start time in seconds. Example: `--effect gong.mp3:1.2:5.5 --effect bell.wav::10`
+  - `--effect`: Add a sound effect to the mix. Format: `file:gain:offset[:repeat=MODE]` where `gain` is in dB (default: 0.5), and `offset` is the start time in seconds.
+    - **Repeat modes:**
+      - Times: `repeat=3x` adds the effect 3 times, but only full fits
+      - Duration: `repeat=10s` repeats the effect as many times as fit in 10 seconds
+      - `repeat=inf` infinite repeat the effect as many full times as fit in the audio length
+    - Example: `--effect gong.mp3:1.2:5:repeat=3x --effect bell.wav::10:repeat=inf`
   - See `--help` for all options
 
 

@@ -1,3 +1,4 @@
+from typing import Optional
 import os
 import tempfile
 import subprocess
@@ -54,7 +55,9 @@ def parse_effect_arg(effect_str: str, default_gain: float = 0.5) -> EffectParams
                 elif val == _REPEAT_ENDLESS:
                     repeat = Repeat(mode=RepeatMode.ENDLESS, value=None)
                 else:
-                    raise ValueError(f"Invalid repeat value: {val}")
+                    raise ValueError(
+                        f"Invalid repeat value: {val}. "
+                        f"Use times ({val}{_REPEAT_TIMES}), duration ({val}{_REPEAT_DURATION}) or endless ('{_REPEAT_ENDLESS}')")
 
         if repeat is not None and repeat.mode in (RepeatMode.TIMES, RepeatMode.DURATION) and repeat.value is None:
             raise ValueError("Repeat value required for count or duration mode")
@@ -85,16 +88,35 @@ def resample_effects(effects, target_sample_rate: int, build_dir: str) -> dict:
         file_map[effect.file] = resampled_path
     return file_map
 
-def overlay_effect(base_audio: str, effect_audio: str, effect_gain: float, effect_offset: float, output_file: str) -> None:
+def overlay_effect(
+    base_audio: str,
+    effect_audio: str,
+    effect_gain: float,
+    effect_offset: float,
+    effect_repeat: Optional[Repeat],
+    output_file: str
+) -> None:
     """
     Overlay effect_audio onto base_audio at effect_offset (seconds) and effect_gain (dB).
+    If repeat is set to TIMES, repeat the effect audio before overlaying.
     Pre-process the effect (pad and gain) to a temp file, then mix with base_audio.
     """
+    effect_path = effect_audio
+    repeated_path = None
+    if effect_repeat is not None and effect_repeat.mode == RepeatMode.TIMES:
+        repeat_count = int(effect_repeat.value)
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_repeated:
+            repeated_path = tmp_repeated.name
+        subprocess.run([
+            "sox", effect_audio, repeated_path, "repeat", str(repeat_count - 1)
+        ], check=True)
+        effect_path = repeated_path
+
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_effect:
         tmp_effect_path = tmp_effect.name
     try:
         subprocess.run([
-            "sox", effect_audio, tmp_effect_path, "pad", str(effect_offset), "gain", f"{effect_gain:+g}"
+            "sox", effect_path, tmp_effect_path, "pad", str(effect_offset), "gain", f"{effect_gain:+g}"
         ], check=True)
         subprocess.run([
             "sox", "-m", base_audio, tmp_effect_path, output_file
@@ -102,3 +124,5 @@ def overlay_effect(base_audio: str, effect_audio: str, effect_gain: float, effec
     finally:
         if os.path.exists(tmp_effect_path):
             os.remove(tmp_effect_path)
+        if repeated_path and os.path.exists(repeated_path):
+            os.remove(repeated_path)

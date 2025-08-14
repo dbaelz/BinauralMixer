@@ -65,6 +65,7 @@ def main() -> None:
                 effect_audio=resampled__effect,
                 effect_gain=effect.gain,
                 effect_offset=effect.offset,
+                effect_repeat=effect.repeat,
                 output_file=next_output
             )
             output_with__effect = next_output

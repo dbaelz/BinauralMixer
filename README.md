@@ -1,5 +1,5 @@
 # Binaural Mixer
-A command line tool to mix an audio track with binaural. It uses SoX under the hood.
+A command line tool to mix an audio track with binaural beats and effects. It uses [SoX](http://sox.sourceforge.net/) under the hood.
 
 
 ## Features

@@ -2,7 +2,15 @@ import os
 import tempfile
 import subprocess
 
-from params import EffectParams
+
+from params import EffectParams, Repeat, RepeatMode
+import math
+
+
+_PARAM_REPEAT = "repeat="
+_REPEAT_TIMES = "x"
+_REPEAT_DURATION = "s"
+_REPEAT_ENDLESS = "inf"
 
 def parse_effect_arg(effect_str: str, default_gain: float = 0.5) -> EffectParams:
     """
@@ -14,13 +22,44 @@ def parse_effect_arg(effect_str: str, default_gain: float = 0.5) -> EffectParams
         if len(parts) < 2:
             raise ValueError("Missing required fields in --effect argument.")
         file = parts[0]
+
         gain_str = parts[1] if len(parts) > 1 else ""
-        offset_str = parts[2] if len(parts) > 2 else ""
         gain = float(gain_str) if gain_str else default_gain
+
+        offset_str = parts[2] if len(parts) > 2 else ""
         if not offset_str:
             raise ValueError("Offset (seconds) is required in --effect argument.")
         offset = float(offset_str)
-        return EffectParams(file=file, gain=gain, offset=offset)
+
+        repeat = None
+        for param in parts[3:]:
+            if param.startswith(_PARAM_REPEAT):
+                val = param[len(_PARAM_REPEAT):]
+                if val.endswith(_REPEAT_TIMES):
+                    try:
+                        value = int(val[:-1])
+                    except ValueError:
+                        raise ValueError(f"Invalid repeat times: {val}")
+                    if value <= 0:
+                        raise ValueError("Repeat times must be positive")
+                    repeat = Repeat(mode=RepeatMode.TIMES, value=value)
+                elif val.endswith(_REPEAT_DURATION):
+                    try:
+                        value = float(val[:-1])
+                    except ValueError:
+                        raise ValueError(f"Invalid repeat duration: {val}")
+                    if value <= 0:
+                        raise ValueError("Repeat duration must be positive")
+                    repeat = Repeat(mode=RepeatMode.DURATION, value=value)
+                elif val == _REPEAT_ENDLESS:
+                    repeat = Repeat(mode=RepeatMode.ENDLESS, value=None)
+                else:
+                    raise ValueError(f"Invalid repeat value: {val}")
+
+        if repeat is not None and repeat.mode in (RepeatMode.TIMES, RepeatMode.DURATION) and repeat.value is None:
+            raise ValueError("Repeat value required for count or duration mode")
+
+        return EffectParams(file=file, gain=gain, offset=offset, repeat=repeat)
     except Exception as e:
         raise ValueError(f"Invalid --effect format: {effect_str}") from e
 

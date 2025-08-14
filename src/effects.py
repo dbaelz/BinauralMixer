@@ -1,11 +1,12 @@
 from typing import Optional
+import math
 import os
 import tempfile
 import subprocess
 
 
+from audio_utils import get_audio_duration
 from params import EffectParams, Repeat, RepeatMode
-import math
 
 
 _PARAM_REPEAT = "repeat="
@@ -95,7 +96,7 @@ def overlay_effect(
     effect_offset: float,
     effect_repeat: Optional[Repeat],
     output_file: str
-) -> None:
+) -> bool:
     """
     Overlay effect_audio onto base_audio at effect_offset (seconds) and effect_gain (dB).
     If repeat is set to TIMES, repeat the effect audio before overlaying.
@@ -103,14 +104,34 @@ def overlay_effect(
     """
     effect_path = effect_audio
     repeated_path = None
-    if effect_repeat is not None and effect_repeat.mode == RepeatMode.TIMES:
-        repeat_count = int(effect_repeat.value)
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_repeated:
-            repeated_path = tmp_repeated.name
-        subprocess.run([
-            "sox", effect_audio, repeated_path, "repeat", str(repeat_count - 1)
-        ], check=True)
-        effect_path = repeated_path
+    if effect_repeat is not None:
+        if effect_repeat.mode == RepeatMode.TIMES:
+            repeat_count = int(effect_repeat.value)
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_repeated:
+                repeated_path = tmp_repeated.name
+            subprocess.run([
+                "sox", effect_audio, repeated_path, "repeat", str(repeat_count - 1)
+            ], check=True)
+            effect_path = repeated_path
+        elif effect_repeat.mode == RepeatMode.DURATION:
+            requested_duration = float(effect_repeat.value)
+            effect_length = get_audio_duration(effect_audio)
+
+            if requested_duration < effect_length:
+                print(f"[WARN] Effect '{effect_audio}' ({effect_length:.2f}s) not added: repeat duration ({requested_duration:.2f}s) is too short for a full repeat.")
+                return False
+            
+            repeat_count = int(requested_duration // effect_length)
+            if repeat_count == 0:
+                print(f"[WARN] Effect '{effect_audio}' not added: repeat duration too short for any full repeat.")
+                return False
+        
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_repeated:
+                repeated_path = tmp_repeated.name
+            subprocess.run([
+                "sox", effect_audio, repeated_path, "repeat", str(repeat_count - 1)
+            ], check=True)
+            effect_path = repeated_path
 
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_effect:
         tmp_effect_path = tmp_effect.name
@@ -121,8 +142,10 @@ def overlay_effect(
         subprocess.run([
             "sox", "-m", base_audio, tmp_effect_path, output_file
         ], check=True)
+        return True
     finally:
         if os.path.exists(tmp_effect_path):
             os.remove(tmp_effect_path)
         if repeated_path and os.path.exists(repeated_path):
             os.remove(repeated_path)
+    return False

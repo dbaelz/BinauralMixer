@@ -60,7 +60,7 @@ def main() -> None:
         for idx, effect in enumerate(effects):
             resampled__effect = effect_file_map[effect.file]
             next_output = os.path.join(TEMP_BUILD_DIR, TMP_EFFECT_FILE_PATTERN.format(idx))
-            overlay_effect(
+            effect_added = overlay_effect(
                 base_audio=output_with__effect,
                 effect_audio=resampled__effect,
                 effect_gain=effect.gain,
@@ -68,12 +68,15 @@ def main() -> None:
                 effect_repeat=effect.repeat,
                 output_file=next_output
             )
-            output_with__effect = next_output
+            if effect_added:
+                output_with__effect = next_output
         
-        subprocess.run([
-            "sox", output_with__effect, output_mix
-        ], check=True)
-        os.remove(output_with__effect)
+        # Only run sox if at least one effect was added
+        if output_with__effect != output_mix:
+            subprocess.run([
+                "sox", output_with__effect, output_mix
+            ], check=True)
+            os.remove(output_with__effect)
 
     if os.path.exists(output_mix):
         print(f"Mixed audio file created at: {output_mix}")

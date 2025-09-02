@@ -8,6 +8,8 @@ from binaurals import parse_binaural_arg, generate_binaural_sox, mix_audio_binau
 from cli import parse_args
 from effects import parse_effect_arg, resample_effects, overlay_effect
 from params import BinauralParams, EffectParams
+from plot_binaural import plot_binaural_sweep
+
 
 TEMP_BUILD_DIR = "build"
 TEMP_BINAURAL_FILE = os.path.join(TEMP_BUILD_DIR, "binaural.wav")
@@ -35,9 +37,18 @@ def main() -> None:
 
     if args.binaural:
         binaural_params = parse_binaural_arg(args.binaural)
+        duration = get_audio_duration(args.audio)
+        
+        plot_binaural_sweep(
+            left_start=binaural_params.left_freq,
+            left_end=binaural_params.left_end if binaural_params.left_end is not None else binaural_params.left_freq,
+            right_start=binaural_params.right_freq,
+            right_end=binaural_params.right_end if binaural_params.right_end is not None else binaural_params.right_freq,
+            duration=duration
+        )
         generate_binaural_sox(
             output_path=TEMP_BINAURAL_FILE,
-            duration_seconds=get_audio_duration(args.audio),
+            duration_seconds=duration,
             sample_rate=target_sample_rate,
             left_freq=binaural_params.left_freq,
             left_end=binaural_params.left_end,
@@ -78,10 +89,11 @@ def main() -> None:
             ], check=True)
             os.remove(output_with__effect)
 
+    print()
     if os.path.exists(output_mix):
-        print(f"Mixed audio file created at: {output_mix}")
+        print(f"✅ Mixed audio file created at: {output_mix}")
     else:
-        print("Failed to create mixed audio file.")
+        print("🛑 Failed to create mixed audio file.")
 
     if args.binaural and os.path.exists(TEMP_BINAURAL_FILE):
             os.remove(TEMP_BINAURAL_FILE)

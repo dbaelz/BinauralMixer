@@ -13,6 +13,7 @@ _PARAM_REPEAT = "repeat="
 _REPEAT_TIMES = "x"
 _REPEAT_DURATION = "s"
 _REPEAT_ENDLESS = "inf"
+_SOX_PROCESS = "sox"
 
 def parse_effect_arg(effect_str: str, default_gain: float = 0.5) -> EffectParams:
     """
@@ -80,7 +81,7 @@ def resample_effects(effects, target_sample_rate: int, build_dir: str) -> dict:
         resampled_path = os.path.join(build_dir, f"{base}-{target_sample_rate}.wav")
         if not os.path.exists(resampled_path):
             cmd = [
-                "sox",
+                _SOX_PROCESS,
                 effect.file,
                 "-r", str(target_sample_rate),
                 resampled_path
@@ -109,7 +110,7 @@ def overlay_effect(
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_repeated:
                 repeated_path = tmp_repeated.name
             subprocess.run([
-                "sox", effect_audio, repeated_path, "repeat", str(repeat_count - 1)
+                _SOX_PROCESS, effect_audio, repeated_path, "repeat", str(repeat_count - 1)
             ], check=True)
             effect_path = repeated_path
         elif effect_repeat.mode in (RepeatMode.DURATION, RepeatMode.ENDLESS):
@@ -143,7 +144,7 @@ def overlay_effect(
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_repeated:
                 repeated_path = tmp_repeated.name
             subprocess.run([
-                "sox", effect_audio, repeated_path, "repeat", str(repeat_count - 1)
+                _SOX_PROCESS, effect_audio, repeated_path, "repeat", str(repeat_count - 1)
             ], check=True)
             effect_path = repeated_path
 
@@ -151,15 +152,17 @@ def overlay_effect(
         tmp_effect_path = tmp_effect.name
     try:
         subprocess.run([
-            "sox", effect_path, tmp_effect_path, "pad", str(effect_offset), "gain", f"{effect_gain:+g}"
+            _SOX_PROCESS, effect_path, tmp_effect_path, "pad", str(effect_offset), "gain", f"{effect_gain:+g}"
         ], check=True)
         subprocess.run([
-            "sox", "-m", base_audio, tmp_effect_path, output_file
+            _SOX_PROCESS, "-m", base_audio, tmp_effect_path, output_file
         ], check=True)
         return True
+    except Exception as e:
+        print(f"[ERROR] Overlay failed: {e}")
+        return False
     finally:
         if os.path.exists(tmp_effect_path):
             os.remove(tmp_effect_path)
         if repeated_path and os.path.exists(repeated_path):
             os.remove(repeated_path)
-    return False

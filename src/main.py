@@ -5,7 +5,7 @@ import tempfile
 
 from audio_utils import get_audio_duration, get_audio_sample_rate, get_mixed_filename
 from binaurals import parse_binaural_arg, generate_binaural_sox, mix_audio_binaural
-from cli import parse_args, PROGRAM_NAME, VERSION
+from cli import parse_args
 from effects import parse_effect_arg, resample_effects, overlay_effect
 from params import BinauralParams, EffectParams
 

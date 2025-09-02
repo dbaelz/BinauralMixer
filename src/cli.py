@@ -1,11 +1,11 @@
 import argparse
 
-PROGRAM_NAME = "Binaural Mixer"
-VERSION = "0.0.1"
+_PROGRAM_NAME = "Binaural Mixer"
+_VERSION = "0.0.1"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Mix an audio track with binaural", add_help=True)
-    parser.add_argument("--version", action="version", version=f"{PROGRAM_NAME} - version {VERSION}")
+    parser.add_argument("--version", action="version", version=f"{_PROGRAM_NAME} - version {_VERSION}")
     parser.add_argument(
         "-a",
         "--audio",

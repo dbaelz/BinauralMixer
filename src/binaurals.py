@@ -3,6 +3,8 @@ import subprocess
 
 from params import BinauralParams
 
+_SOX_PROCESS = "sox"
+
 def parse_binaural_arg(binaural_str: str) -> BinauralParams:
     """
     Parse a --binaural argument string of the form 'left[-left_end]:right[-right_end]'.
@@ -49,7 +51,7 @@ def generate_binaural_sox(
     else:
         synth_args += ["sine", f"{right_freq}"]
     cmd = [
-        "sox",
+        _SOX_PROCESS,
         "-b", "16",
         "-n",
         "-r", str(sample_rate),

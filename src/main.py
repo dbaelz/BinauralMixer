@@ -8,7 +8,7 @@ from binaurals import parse_binaural_arg, generate_binaural_sox, mix_audio_binau
 from cli import parse_args
 from effects import parse_effect_arg, resample_effects, overlay_effect
 from params import BinauralParams, EffectParams
-from plot_binaural import plot_binaural_sweep
+from plot import plot_binaural_sweep, plot_effects
 
 
 TEMP_BUILD_DIR = "build"
@@ -34,6 +34,9 @@ def main() -> None:
     effect_file_map = resample_effects(effects, target_sample_rate, TEMP_BUILD_DIR)
 
     output_mix = os.path.join(TEMP_BUILD_DIR, get_mixed_filename(args.audio))
+
+    if effects:        
+        plot_effects(effects)
 
     if args.binaural:
         binaural_params = parse_binaural_arg(args.binaural)

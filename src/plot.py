@@ -1,3 +1,7 @@
+from typing import List
+
+from params import EffectParams, RepeatMode
+
 def plot_binaural_sweep(
     left_start: float,
     left_end: float,
@@ -39,4 +43,31 @@ def plot_binaural_sweep(
     freq_bar(left_start, left_end, left_freqs, time_points)
     print("\nRight channel sweep:")
     freq_bar(right_start, right_end, right_freqs, time_points)
+    print()
+
+
+def plot_effects(effects: List[EffectParams]) -> None:
+    """
+    Print a table of effects: file, gain, offset, repeat.
+    effects: list of EffectParams
+    """
+    def format_repeat(repeat) -> str:
+        if repeat is None:
+            return "1x"
+        mode = getattr(repeat, "mode", None)
+        value = getattr(repeat, "value", None)
+        if mode == RepeatMode.TIMES:
+            return f"{value}x"
+        elif mode == RepeatMode.DURATION:
+            return f"{value}s"
+        elif mode == RepeatMode.ENDLESS:
+            return "infinite"
+        return "-"
+
+    effects_sorted = sorted(effects, key=lambda eff: eff.offset)
+    
+    print("Effect   | Gain (dB) | Offset (s) | Repeat")
+    print("------------------------------------------")
+    for eff in effects_sorted:
+        print(f"{eff.file:<8} | {eff.gain:>9} | {eff.offset:>10} | {format_repeat(eff.repeat)}")
     print()
